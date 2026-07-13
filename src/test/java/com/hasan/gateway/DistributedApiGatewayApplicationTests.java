@@ -8,6 +8,7 @@ class DistributedApiGatewayApplicationTests {
 
 	@Test
 	void contextLoads() {
+		
 	}
 
 }
