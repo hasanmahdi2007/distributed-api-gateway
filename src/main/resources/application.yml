@@ -7,9 +7,9 @@ spring:
     gateway:
       routes:
         - id: protected-api-route
-          uri: https://httpbin.org 
+          uri: https://httpbin.org
           predicates:
-            - Path=/api/**
+            - Path=/api/v1/external/**
 
   # --- 2. CACHE DATABASE (Redis for Rate Limiting) ---
   data:
