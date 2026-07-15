@@ -4,21 +4,26 @@ import com.hasan.gateway.repos.ApiKeyRepo;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Component
 public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final ApiKeyRepo apiKeyRepo;
+    private final ReactiveStringRedisTemplate redisTemplate;
 
-    public ApiAuthenticationFilter(ApiKeyRepo apiKeyRepo) {
+    public ApiAuthenticationFilter(ApiKeyRepo apiKeyRepo, ReactiveStringRedisTemplate redisTemplate) {
         this.apiKeyRepo = apiKeyRepo;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -26,30 +31,60 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // 1. Let registration requests pass through without a key
+        // 1. VIP Bypass for registration (SECURED WITH ADMIN KEY)
         if (path.startsWith("/api/v1/clients/register")) {
-            return chain.filter(exchange);
+            
+            // Extract the Admin Key from headers
+            String adminKey = exchange.getRequest().getHeaders().getFirst("X-Admin-Key");
+            
+            // Check if it matches your secure internal password
+            if ("super-secret-admin-password-123!".equals(adminKey)) {
+                return chain.filter(exchange); // Authorized! Pass to the Controller.
+            } else {
+                return rejectRequest(exchange, "Fatal: Only authorized backend servers can register new keys."); // Blocked!
+            }
         }
 
-        // 2. Extract the API Key from the HTTP Headers
+        // 2. Extract API Key
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null || rawApiKey.isEmpty()) {
             return rejectRequest(exchange, "Missing X-API-KEY header");
         }
 
-        // 3. Hash the incoming key and check the database
         String hashedIncomingKey = SecurityUtil.hashKey(rawApiKey);
-        boolean keyExists = apiKeyRepo.findByKeyHash(hashedIncomingKey).isPresent();
+        String cacheKey = "auth:" + hashedIncomingKey;
 
-        if (!keyExists) {
-            return rejectRequest(exchange, "Invalid API Key");
-        }
-
-        // 4. Key is valid! Let them pass to the routing destination.
-        return chain.filter(exchange);
+        // 3. THE CACHE-ASIDE PATTERN (With Negative Caching)
+        return redisTemplate.opsForValue().get(cacheKey)
+                .switchIfEmpty(Mono.defer(() -> 
+                    
+                    // CACHE MISS: Safely query PostgreSQL
+                    Mono.fromCallable(() -> apiKeyRepo.findByKeyHash(hashedIncomingKey).isPresent())
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .flatMap(existsInDb -> {
+                            if (existsInDb) {
+                                // Found! Save as VALID for 24 hours
+                                return redisTemplate.opsForValue()
+                                        .set(cacheKey, "valid", Duration.ofHours(24))
+                                        .thenReturn("valid");
+                            } else {
+                                // THE FIX: Negative Caching! Save as INVALID for 5 minutes
+                                return redisTemplate.opsForValue()
+                                        .set(cacheKey, "invalid", Duration.ofMinutes(5))
+                                        .thenReturn("invalid");
+                            }
+                        })
+                ))
+                .flatMap(status -> {
+                    // Check what Redis/Postgres actually said
+                    if ("valid".equals(status)) {
+                        return chain.filter(exchange); // Let them pass!
+                    } else {
+                        return rejectRequest(exchange, "Invalid API Key"); // Blocked by Negative Cache
+                    }
+                });
     }
 
-    // Standard JSON rejection response for Spring Cloud Gateway (Netty)
     private Mono<Void> rejectRequest(ServerWebExchange exchange, String message) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
@@ -62,7 +97,6 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
         );
     }
 
-    // Forces this filter to run BEFORE the Redis rate limiter
     @Override
     public int getOrder() {
         return -100; 
