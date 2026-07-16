@@ -1,7 +1,7 @@
 package com.hasan.gateway.security;
 
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Component
-public class IpRateLimiterFilter implements GlobalFilter, Ordered {
+public class IpRateLimiterFilter implements WebFilter, Ordered {
 
     private final ReactiveStringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> script;
@@ -30,7 +30,7 @@ public class IpRateLimiterFilter implements GlobalFilter, Ordered {
     }
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
                 
         // 1. Extract the raw IP address of the incoming request
         String ipAddress = exchange.getRequest().getRemoteAddress() != null ? 

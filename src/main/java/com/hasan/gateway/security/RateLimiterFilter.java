@@ -1,7 +1,7 @@
 package com.hasan.gateway.security;
 
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Component
-public class RateLimiterFilter implements GlobalFilter, Ordered {
+public class RateLimiterFilter implements WebFilter, Ordered {
 
     private final ReactiveStringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> script;
@@ -30,7 +30,7 @@ public class RateLimiterFilter implements GlobalFilter, Ordered {
     }
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null) {
@@ -66,6 +66,6 @@ public class RateLimiterFilter implements GlobalFilter, Ordered {
     @Override
     public int getOrder() {
         // Runs at -50, so it happens AFTER AuthFilter (-100)
-        return -50; 
+        return -100; 
     }
 }

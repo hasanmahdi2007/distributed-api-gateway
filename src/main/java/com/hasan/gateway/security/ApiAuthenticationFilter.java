@@ -1,14 +1,15 @@
 package com.hasan.gateway.security;
 
 import com.hasan.gateway.repos.ApiKeyRepo;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -16,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Component
-public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
+public class ApiAuthenticationFilter implements WebFilter, Ordered {
 
     private final ApiKeyRepo apiKeyRepo;
     private final ReactiveStringRedisTemplate redisTemplate;
@@ -27,9 +28,13 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 
         String path = exchange.getRequest().getURI().getPath();
+
+        if (path.startsWith("/api/v1/clients/register")) {
+            return chain.filter(exchange);
+        }
 
         // 1. Extract API Key
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
@@ -85,6 +90,6 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -100; 
+        return -50; 
     }
 }
