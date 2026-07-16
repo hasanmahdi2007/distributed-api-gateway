@@ -32,11 +32,11 @@ public class ApiAuthenticationFilter implements WebFilter, Ordered {
 
         String path = exchange.getRequest().getURI().getPath();
 
+        // Let register requests pass right through
         if (path.startsWith("/api/v1/clients/register")) {
             return chain.filter(exchange);
         }
 
-        // 1. Extract API Key
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null || rawApiKey.isEmpty()) {
             return rejectRequest(exchange, "Missing X-API-KEY header");
@@ -45,33 +45,42 @@ public class ApiAuthenticationFilter implements WebFilter, Ordered {
         String hashedIncomingKey = SecurityUtil.hashKey(rawApiKey);
         String cacheKey = "auth:" + hashedIncomingKey;
 
-        // 2. THE CACHE-ASIDE PATTERN (With Negative Caching)
         return redisTemplate.opsForValue().get(cacheKey)
                 .switchIfEmpty(Mono.defer(() -> 
-                    
-                    // CACHE MISS: Safely query PostgreSQL
-                    Mono.fromCallable(() -> apiKeyRepo.findByKeyHash(hashedIncomingKey).isPresent())
+                    Mono.fromCallable(() -> apiKeyRepo.findByKeyHash(hashedIncomingKey))
                         .subscribeOn(Schedulers.boundedElastic())
-                        .flatMap(existsInDb -> {
-                            if (existsInDb) {
-                                // Found! Save as VALID for 24 hours
+                        .flatMap(optionalKey -> {
+                            if (optionalKey.isPresent()) {
+                                // Get the tier from your database (Adjust this line to match your exact entity structure if needed)
+                                String tier = optionalKey.get().getClient().getTierType(); 
+                                
+                                // Format: "Capacity:Rate"
+                                String limits = "PRO".equalsIgnoreCase(tier) ? "100:20" : "20:5";
+
                                 return redisTemplate.opsForValue()
-                                        .set(cacheKey, "valid", Duration.ofHours(24))
-                                        .thenReturn("valid");
+                                        .set(cacheKey, limits, Duration.ofHours(24))
+                                        .thenReturn(limits);
                             } else {
-                                // THE FIX: Negative Caching! Save as INVALID for 5 minutes
                                 return redisTemplate.opsForValue()
                                         .set(cacheKey, "invalid", Duration.ofMinutes(5))
                                         .thenReturn("invalid");
                             }
                         })
                 ))
-                .flatMap(status -> {
-                    // Check what Redis/Postgres actually said
-                    if ("valid".equals(status)) {
-                        return chain.filter(exchange); // Let them pass!
+                .flatMap(cachedValue -> {
+                    if ("invalid".equals(cachedValue)) {
+                        return rejectRequest(exchange, "Invalid API Key"); 
                     } else {
-                        return rejectRequest(exchange, "Invalid API Key"); // Blocked by Negative Cache
+                        // SUCCESS! Split the "100:20" string
+                        String[] limitParts = cachedValue.split(":");
+                        String capacity = limitParts[0];
+                        String rate = limitParts[1];
+
+                        // PUT THE LIMITS ON THE CLIPBOARD
+                        exchange.getAttributes().put("user_capacity", capacity);
+                        exchange.getAttributes().put("user_rate", rate);
+
+                        return chain.filter(exchange); 
                     }
                 });
     }
@@ -90,6 +99,6 @@ public class ApiAuthenticationFilter implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -50; 
+        return -2; 
     }
 }

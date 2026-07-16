@@ -64,6 +64,6 @@ public class IpRateLimiterFilter implements WebFilter, Ordered {
     @Override
     public int getOrder() {
         // Runs at -200! This is the absolute first shield, stopping bots before they hit the Bouncer.
-        return -200; 
+        return -3; 
     }
 }

@@ -22,8 +22,6 @@ public class RateLimiterFilter implements WebFilter, Ordered {
 
     public RateLimiterFilter(ReactiveStringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
-        
-        // 1. Tell Spring exactly where your Lua script is located
         this.script = new DefaultRedisScript<>();
         this.script.setLocation(new ClassPathResource("token_bucket.lua"));
         this.script.setResultType(Long.class);
@@ -34,29 +32,25 @@ public class RateLimiterFilter implements WebFilter, Ordered {
 
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null) {
-            return chain.filter(exchange); // Let the AuthFilter handle the rejection
+            return chain.filter(exchange); 
         }
 
-        // 3. Define the Lua variables
-        // (We will hardcode limit 20 and rate 5 for now until we link PostgreSQL!)
-        String capacity = "20"; 
-        String rate = "5"; 
+        // READ THE CLIPBOARD! (If for some reason it's missing, default to FREE tier: 20 and 5)
+        String capacity = exchange.getAttributeOrDefault("user_capacity", "20");
+        String rate = exchange.getAttributeOrDefault("user_rate", "5");
+        
         String now = String.valueOf(Instant.now().getEpochSecond());
         String requested = "1";
 
-        // 4. Create unique Redis keys for this specific API Key
         List<String> keys = List.of("tokens:" + rawApiKey, "timestamp:" + rawApiKey);
         List<String> args = List.of(rate, capacity, now, requested);
 
-        // 5. Fire the script at Redis asynchronously
         return redisTemplate.execute(script, keys, args)
                 .next()
                 .flatMap(result -> {
                     if (result == 1L) {
-                        // Bucket has tokens -> Let them through
                         return chain.filter(exchange); 
                     } else {
-                        // Bucket empty -> Smash the request with a 429 Error
                         exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
                         return exchange.getResponse().setComplete(); 
                     }
@@ -65,7 +59,6 @@ public class RateLimiterFilter implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Runs at -50, so it happens AFTER AuthFilter (-100)
-        return -100; 
+        return -1; 
     }
 }
