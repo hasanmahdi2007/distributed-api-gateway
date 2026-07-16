@@ -1,5 +1,6 @@
 package com.hasan.gateway.controllers;
 
+import com.hasan.gateway.dtos.NewClientResponse;
 import com.hasan.gateway.dtos.RegistrationRequest;
 import com.hasan.gateway.entities.Client;
 import com.hasan.gateway.services.ClientService;
@@ -27,17 +28,16 @@ public class ClientController {
             @Valid @RequestBody RegistrationRequest request,
             @RequestHeader(value = "X-Admin-Key", required = false) String adminKey) {
 
-        // The Gateway Shield for Local Endpoints
         if (adminKey == null || !adminKey.equals("super-secret-admin-password-123!")) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Fatal: Only authorized backend servers can register new keys."));
         }
 
-        String rawApiKey = clientService.registerClientAndGenerateKey(
+        NewClientResponse response = clientService.registerClientAndGenerateKey(
                 request.companyName(), request.email(), request.tierType());
                 
-        return ResponseEntity.status(HttpStatus.CREATED).body(rawApiKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // 2. READ

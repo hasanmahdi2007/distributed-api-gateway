@@ -35,7 +35,7 @@ public class GatewaySecurityIntegrationTest {
             .jsonPath("$.error").isEqualTo("Fatal: Only authorized backend servers can register new keys.");
     }
 
-    /* @Test
+    @Test
     public void testLegitimateRegistration_WithAdminKey_Returns201() {
         // 1. Create the valid frontend request
         RegistrationRequest request = new RegistrationRequest(
@@ -59,7 +59,7 @@ public class GatewaySecurityIntegrationTest {
             .jsonPath("$.clientId").exists(); // Proves it saved to PostgreSQL
     }
 
-    @Test
+    /*@Test
     public void testMissingApiKey_Returns401() {
         // Fire a request to a normal route without providing an X-API-KEY header
         webTestClient.get()

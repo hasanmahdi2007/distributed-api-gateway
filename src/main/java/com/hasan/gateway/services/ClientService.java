@@ -1,6 +1,7 @@
 package com.hasan.gateway.services;
 
 import com.hasan.gateway.security.SecurityUtil;
+import com.hasan.gateway.dtos.NewClientResponse;
 import com.hasan.gateway.entities.ApiKey;
 import com.hasan.gateway.entities.Client;
 import com.hasan.gateway.repos.ApiKeyRepo;
@@ -24,7 +25,7 @@ public class ClientService {
     }
 
     @Transactional
-    public String registerClientAndGenerateKey(String companyName, String email, String tierType) {
+    public NewClientResponse registerClientAndGenerateKey(String companyName, String email, String tierType) {
         
         // 1. Create and save the new Client
         Client client = new Client();
@@ -54,7 +55,7 @@ public class ClientService {
         apiKeyRepo.save(apiKey);
 
         // 5. Return the RAW key so the user can copy it. 
-        return rawApiKey;
+        return new NewClientResponse(client.getId(), rawApiKey);
     }
 
     public Client findById(UUID id) {
