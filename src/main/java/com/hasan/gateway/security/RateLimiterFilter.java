@@ -31,11 +31,6 @@ public class RateLimiterFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        
-        // 2. VIP Bypass for Registration
-        if (exchange.getRequest().getURI().getPath().startsWith("/api/v1/clients/register")) {
-            return chain.filter(exchange);
-        }
 
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null) {

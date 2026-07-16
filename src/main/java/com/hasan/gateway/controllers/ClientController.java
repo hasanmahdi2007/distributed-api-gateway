@@ -1,10 +1,12 @@
 package com.hasan.gateway.controllers;
 
+import com.hasan.gateway.dtos.NewClientResponse;
 import com.hasan.gateway.dtos.RegistrationRequest;
 import com.hasan.gateway.entities.Client;
 import com.hasan.gateway.services.ClientService;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,33 +22,39 @@ public class ClientController {
         this.clientService = clientService;
     }
 
-    // 1. CREATE: The original registration endpoint
+    // 1. CREATE: The permanent home of the X-Admin-Key check
     @PostMapping("/register")
-    public ResponseEntity<String> registerClient(@Valid @RequestBody RegistrationRequest request) {
-        String rawApiKey = clientService.registerClientAndGenerateKey(
+    public ResponseEntity<?> registerClient(
+            @Valid @RequestBody RegistrationRequest request,
+            @RequestHeader(value = "X-Admin-Key", required = false) String adminKey) {
+
+        if (adminKey == null || !adminKey.equals("super-secret-admin-password-123!")) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Fatal: Only authorized backend servers can register new keys."));
+        }
+
+        NewClientResponse response = clientService.registerClientAndGenerateKey(
                 request.companyName(), request.email(), request.tierType());
-        return ResponseEntity.status(HttpStatus.CREATED).body(rawApiKey);
+                
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // 2. READ: Get info about a client by their ID
+    // 2. READ
     @GetMapping("/{id}")
     public ResponseEntity<?> getClient(@PathVariable UUID id) {
-        // Calls the service, returns a 200 OK with the client data as JSON
         Client clientData = clientService.findById(id);
         return ResponseEntity.ok(clientData);
     }
 
-    // 3. UPDATE: Change their tier (e.g., upgrade to PRO)
+    // 3. UPDATE
     @PutMapping("/{id}/tier")
-    public ResponseEntity<String> updateTier(
-            @PathVariable UUID id, 
-            @RequestParam String newTier) {
-        
+    public ResponseEntity<String> updateTier(@PathVariable UUID id, @RequestParam String newTier) {
         clientService.updateTier(id, newTier);
         return ResponseEntity.ok("Client " + id + " successfully upgraded to " + newTier + " tier.");
     }
 
-    // 4. DELETE: Ban a client or remove their access
+    // 4. DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteClient(@PathVariable UUID id) {
         clientService.deleteById(id);

@@ -31,15 +31,7 @@ public class IpRateLimiterFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        
-        // 1. Extract the PATH to see where the request is trying to go
-        String path = exchange.getRequest().getURI().getPath();
-
-        // 2. VIP Bypass: Check the PATH, not the IP address!
-        if (path.startsWith("/api/v1/clients/register")) {
-            return chain.filter(exchange); // <-- The Wave Off
-        }
-
+                
         // 1. Extract the raw IP address of the incoming request
         String ipAddress = exchange.getRequest().getRemoteAddress() != null ? 
                 exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "unknown-ip";

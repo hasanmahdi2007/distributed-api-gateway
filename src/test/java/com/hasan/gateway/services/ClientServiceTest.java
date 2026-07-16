@@ -1,5 +1,6 @@
 package com.hasan.gateway.services;
 
+import com.hasan.gateway.dtos.NewClientResponse;
 import com.hasan.gateway.entities.ApiKey;
 import com.hasan.gateway.entities.Client;
 import com.hasan.gateway.repos.ApiKeyRepo;
@@ -38,13 +39,13 @@ class ClientServiceTest {
         String tier = "PRO";
 
         // --- 2. ACT (Run the actual method) ---
-        String rawKey = clientService.registerClientAndGenerateKey(companyName, email, tier);
+        NewClientResponse response = clientService.registerClientAndGenerateKey(companyName, email, tier);
 
         // --- 3. ASSERT (Verify the results) ---
         
         // A. Check that the raw key looks correct
-        assertNotNull(rawKey);
-        assertTrue(rawKey.startsWith("sk_live_"));
+        assertNotNull(response.apiKey());
+        assertTrue(response.apiKey().startsWith("sk_live_"));
 
         // B. Check that clientRepo.save() was called exactly once
         verify(clientRepo, times(1)).save(any(Client.class));
@@ -60,7 +61,7 @@ class ClientServiceTest {
 
         // E. Verify the Math: Did the service actually hash it using SHA-256?
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] expectedHashBytes = digest.digest(rawKey.getBytes());
+        byte[] expectedHashBytes = digest.digest(response.apiKey().getBytes());
         String expectedHashString = Base64.getEncoder().encodeToString(expectedHashBytes);
         
         assertEquals(expectedHashString, savedApiKey.getKeyHash(), "The database hash should match the SHA-256 of the raw key!");
