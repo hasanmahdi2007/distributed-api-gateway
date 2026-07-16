@@ -31,21 +31,7 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // 1. VIP Bypass for registration (SECURED WITH ADMIN KEY)
-        if (path.startsWith("/api/v1/clients/register")) {
-            
-            // Extract the Admin Key from headers
-            String adminKey = exchange.getRequest().getHeaders().getFirst("X-Admin-Key");
-            
-            // Check if it matches your secure internal password
-            if ("super-secret-admin-password-123!".equals(adminKey)) {
-                return chain.filter(exchange); // Authorized! Pass to the Controller.
-            } else {
-                return rejectRequest(exchange, "Fatal: Only authorized backend servers can register new keys."); // Blocked!
-            }
-        }
-
-        // 2. Extract API Key
+        // 1. Extract API Key
         String rawApiKey = exchange.getRequest().getHeaders().getFirst("X-API-KEY");
         if (rawApiKey == null || rawApiKey.isEmpty()) {
             return rejectRequest(exchange, "Missing X-API-KEY header");
@@ -54,7 +40,7 @@ public class ApiAuthenticationFilter implements GlobalFilter, Ordered {
         String hashedIncomingKey = SecurityUtil.hashKey(rawApiKey);
         String cacheKey = "auth:" + hashedIncomingKey;
 
-        // 3. THE CACHE-ASIDE PATTERN (With Negative Caching)
+        // 2. THE CACHE-ASIDE PATTERN (With Negative Caching)
         return redisTemplate.opsForValue().get(cacheKey)
                 .switchIfEmpty(Mono.defer(() -> 
                     

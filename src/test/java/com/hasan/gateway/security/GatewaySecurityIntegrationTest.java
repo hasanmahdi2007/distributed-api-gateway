@@ -35,7 +35,7 @@ public class GatewaySecurityIntegrationTest {
             .jsonPath("$.error").isEqualTo("Fatal: Only authorized backend servers can register new keys.");
     }
 
-    /*@Test
+    /* @Test
     public void testLegitimateRegistration_WithAdminKey_Returns201() {
         // 1. Create the valid frontend request
         RegistrationRequest request = new RegistrationRequest(
@@ -68,6 +68,5 @@ public class GatewaySecurityIntegrationTest {
             .expectStatus().isUnauthorized()
             .expectBody()
             .jsonPath("$.error").isEqualTo("Missing X-API-KEY header");
-    }
-            */
+    }*/
 }
