@@ -78,11 +78,11 @@ public class GatewaySecurityIntegrationTest {
             .expectStatus().isUnauthorized()
             .expectBody()
             .jsonPath("$.error").isEqualTo("Missing X-API-KEY header");
-    }*/
+    }
 
     @Test
     public void testRegisterAndImmediatelyRetrieveClient_Returns200() {
-        // 1. Setup unique data to prevent database crashes
+        // 1. Setup unique data
         String uniqueEmail = "integration-" + UUID.randomUUID() + "@testcompany.com";
         RegistrationRequest request = new RegistrationRequest("Vault Tech", uniqueEmail, "PRO");
 
@@ -94,31 +94,79 @@ public class GatewaySecurityIntegrationTest {
             .bodyValue(request)
             .exchange()
             .expectStatus().isCreated()
-            
-            // --- THE ESCAPE HATCH ---
-            // We stop checking JSON paths and tell Spring: "Map this JSON back to my Java object and give it to me!"
             .expectBody(NewClientResponse.class)
             .returnResult()
             .getResponseBody();
 
-        // Sanity check: Ensure the response wasn't null
         Assertions.assertNotNull(savedResponse);
         Assertions.assertNotNull(savedResponse.clientId());
         
-        // 3. Extract the new UUID from the database!
+        // 3. Extract the new UUID AND the new API Key!
         UUID newClientId = savedResponse.clientId();
+        String newApiKey = savedResponse.apiKey(); // <-- Use whatever variable name your DTO uses for the plain-text key!
 
-        // 4. Fire the GET request using the extracted UUID
+        // 4. Fire the GET request (Acting as the newly registered client)
         webTestClient.get()
-            .uri("/api/v1/clients/" + "some-secure-route") // Injecting the UUID dynamically
+            .uri("/api/v1/clients/" + newClientId) // <-- FIX 1: Pass the actual UUID!
+            .header("X-API-KEY", newApiKey)        // <-- FIX 2: Provide the API Key to pass the Bouncer!
             .exchange()
-            
-            // 5. Assert the GET request succeeded and matches our initial data
             .expectStatus().isOk()
             .expectBody()
             .jsonPath("$.id").isEqualTo(newClientId.toString())
             .jsonPath("$.companyName").isEqualTo("Vault Tech")
             .jsonPath("$.email").isEqualTo(uniqueEmail)
             .jsonPath("$.tierType").isEqualTo("PRO");
+    }
+
+    @Test
+    public void testFakeApiKey_IsBlockedByBouncer() {
+        // Fire a request with a completely fabricated API key
+        webTestClient.get()
+            .uri("/api/v1/clients/some-random-id")
+            .header("X-API-KEY", "sk_live_fake_hacker_key_99999999")
+            .exchange()
+            
+            // The Gateway MUST block this with a 401
+            .expectStatus().isUnauthorized()
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("Invalid API Key");
+    }*/
+
+    @Test
+    public void testRateLimiter_DropsHammerOnSpam() {
+        // 1. Register a FREE tier user (Limits: 20 capacity, 5 rate)
+        RegistrationRequest request = new RegistrationRequest("Spam Inc", "spam@test.com", "FREE");
+
+        NewClientResponse savedResponse = webTestClient.post()
+            .uri("/api/v1/clients/register")
+            .header("X-Admin-Key", "super-secret-admin-password-123!")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(request)
+            .exchange()
+            .expectStatus().isCreated()
+            .expectBody(NewClientResponse.class)
+            .returnResult()
+            .getResponseBody();
+
+        String validApiKey = savedResponse.apiKey();
+        UUID clientId = savedResponse.clientId();
+
+        // 2. The Free tier bucket holds 20 tokens. 
+        // We will fire 20 rapid requests. They should ALL succeed.
+        for (int i = 0; i < 20; i++) {
+            webTestClient.get()
+                .uri("/api/v1/clients/" + clientId)
+                .header("X-API-KEY", validApiKey)
+                .exchange()
+                .expectStatus().isOk(); // All 20 pass through the Gateway
+        }
+
+        // 3. THE HAMMER DROP
+        // The bucket is now exactly empty. The 21st request MUST be blocked.
+        webTestClient.get()
+            .uri("/api/v1/clients/" + clientId)
+            .header("X-API-KEY", validApiKey)
+            .exchange()
+            .expectStatus().isEqualTo(429); // 429 TOO MANY REQUESTS
     }
 }

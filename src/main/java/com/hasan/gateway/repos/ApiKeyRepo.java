@@ -2,6 +2,8 @@ package com.hasan.gateway.repos;
 
 import com.hasan.gateway.entities.ApiKey;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.UUID;
 import java.util.Optional;
@@ -10,5 +12,6 @@ import java.util.Optional;
 public interface ApiKeyRepo extends JpaRepository<ApiKey, UUID> {
     
     // Spring generates the SQL to look up the API Key by its hash
-    Optional<ApiKey> findByKeyHash(String keyHash);
+    @Query("SELECT a FROM ApiKey a JOIN FETCH a.client WHERE a.keyHash = :keyHash")
+    Optional<ApiKey> findByKeyHash(@Param("keyHash") String keyHash);
 }

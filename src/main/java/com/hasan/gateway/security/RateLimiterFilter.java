@@ -23,7 +23,7 @@ public class RateLimiterFilter implements WebFilter, Ordered {
     public RateLimiterFilter(ReactiveStringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.script = new DefaultRedisScript<>();
-        this.script.setLocation(new ClassPathResource("token_bucket.lua"));
+        this.script.setLocation(new ClassPathResource("scripts/token_bucket.lua"));
         this.script.setResultType(Long.class);
     }
 

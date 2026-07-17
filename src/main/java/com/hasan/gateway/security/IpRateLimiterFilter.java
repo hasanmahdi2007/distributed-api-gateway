@@ -25,7 +25,7 @@ public class IpRateLimiterFilter implements WebFilter, Ordered {
         
         // Reusing your flawless Lua script!
         this.script = new DefaultRedisScript<>();
-        this.script.setLocation(new ClassPathResource("token_bucket.lua"));
+        this.script.setLocation(new ClassPathResource("scripts/token_bucket.lua"));
         this.script.setResultType(Long.class);
     }
 
