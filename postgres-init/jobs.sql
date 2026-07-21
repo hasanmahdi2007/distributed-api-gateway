@@ -18,7 +18,7 @@ DROP TABLE IF EXISTS jobs CASCADE;
 DROP TABLE IF EXISTS companies CASCADE;
 
 CREATE TABLE companies (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL UNIQUE,
     ats_type VARCHAR(50) NOT NULL,            
     board_token VARCHAR(255) NOT NULL,         
@@ -28,11 +28,11 @@ CREATE TABLE companies (
 
 -- 2. Jobs Table
 CREATE TABLE jobs (
-    id BIGSERIAL PRIMARY KEY,
-    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     
-    -- Role & Compensation (NEW FIELDS)
+    -- Role & Compensation
     experience_level VARCHAR(50),              -- e.g., 'Junior', 'Mid', 'Senior', 'Lead'
     employment_type VARCHAR(50),               -- e.g., 'Full-time', 'Contract', 'Internship'
     salary_min INTEGER,                        -- e.g., 90000
@@ -66,12 +66,12 @@ CREATE INDEX idx_jobs_search_vector ON jobs USING GIN (search_vector);
 CREATE INDEX idx_jobs_active_posted ON jobs(status, posted_at DESC);
 CREATE INDEX idx_jobs_company_id ON jobs(company_id);
 
--- 4. Automated Search Vector Trigger (UPDATED with Experience Level)
+-- 4. Automated Search Vector Trigger
 CREATE OR REPLACE FUNCTION update_job_search_vector() RETURNS trigger AS $$
 BEGIN
   NEW.search_vector :=
     setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(NEW.experience_level, '')), 'A') || -- Added weight for seniority
+    setweight(to_tsvector('english', coalesce(NEW.experience_level, '')), 'A') || 
     setweight(to_tsvector('english', coalesce(NEW.department, '')), 'B') ||
     setweight(to_tsvector('english', coalesce(NEW.location, '')), 'B') ||
     setweight(to_tsvector('english', coalesce(NEW.description_text, '')), 'C');
