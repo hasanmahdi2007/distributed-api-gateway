@@ -1,0 +1,50 @@
+server:
+  port: 8083 # Runs on a dedicated port so your API Gateway (8080) can route traffic to it
+
+spring:
+  application:
+    name: job-finder
+
+  # 1. PostgreSQL Database Configuration
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/job_finder_db 
+    username: postgres
+    password: ${POSTGRES_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10 # Prevents the scraper from opening too many DB connections at once
+
+  # 2. JPA & Hibernate Settings
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update # Syncs your UUID Java models with your DB tables automatically
+    show-sql: true     # Prints the executed SQL queries to your terminal
+    properties:
+      hibernate:
+        format_sql: true # Formats the printed SQL so it is actually readable
+
+  # 3. Redis Configuration (For your Ingestion Stream)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000
+
+# 4. Custom Application Properties
+app:
+  scraper:
+    webclient:
+      timeout-ms: 5000 # If an ATS API goes down, WebClient gives up after 5 seconds instead of hanging
+    greenhouse:
+      base-url: "https://boards-api.greenhouse.io/v1/boards"
+    lever:
+      base-url: "https://api.lever.co/v0/postings"
+
+# 5. Logging Configuration
+logging:
+  level:
+    root: INFO
+    # Set to DEBUG to watch exactly what HTTP requests WebClient is firing
+    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG 
+    org.hibernate.SQL: DEBUG
