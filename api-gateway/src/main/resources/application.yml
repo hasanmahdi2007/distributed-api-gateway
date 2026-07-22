@@ -9,6 +9,15 @@ spring:
   cloud:
     gateway:
       routes:
+      
+        - id: job-finder-route
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/v1/jobs/**
+          filters:
+            - AddRequestHeader=X-Internal-Secret, super-secret-internal-key-123!
+
+
         - id: protected-api-route
           uri: https://httpbin.org
           predicates:
