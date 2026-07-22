@@ -39,14 +39,15 @@ public class JobStreamConsumer implements StreamListener<String, ObjectRecord<St
                         log.debug("Updated existing job: {}", existingJob.getId());
                     },
                     () -> {
-                        // 2b. INSERTING: We have never seen this job before. Create a new entity.
+                    // 2b. INSERTING: We have never seen this job before. Create a new entity.
                         Job newJob = new Job();
-                        // UUID is generated automatically by your DB or Entity setup
                         newJob.setAtsJobId(incomingJob.atsJobId());
                         newJob.setCompanyId(incomingJob.companyId());
                         newJob.setTitle(incomingJob.title());
                         newJob.setLocation(incomingJob.location());
-                        // ... map other fields ...
+                        newJob.setDepartment(incomingJob.department());
+                        newJob.setApplyUrl(incomingJob.url()); 
+                        newJob.setDescriptionText(incomingJob.description());
                         
                         jobRepository.save(newJob);
                         log.info("Saved BRAND NEW job to PostgreSQL: {}", incomingJob.title());
