@@ -64,9 +64,6 @@ public class GreenhouseScraperService {
                 .subscribe(); // Non-blocking async execution
     }
 
-    /**
-     * Publishes a JobDto ticket to the Redis Stream.
-     */
     private void pushToRedisStream(JobDto jobDto) {
         ObjectRecord<String, JobDto> record = StreamRecords.newRecord()
                 .ofObject(jobDto)
