@@ -2,78 +2,59 @@ package com.distributed.job_finder.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "jobs")
+@Table(name = "jobs", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_ats_company", columnNames = {"ats_job_id", "company_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Job {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    // Maps the foreign key back to the companies table using UUIDs
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false)
-    private Company company;
+    @Column(name = "ats_job_id", nullable = false)
+    private String atsJobId;
 
-    @Column(nullable = false)
+    @Column(name = "company_id", nullable = false)
+    private UUID companyId;
+
+    @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "experience_level")
-    private String experienceLevel;
-
-    @Column(name = "employment_type")
-    private String employmentType;
-
-    @Column(name = "salary_min")
-    private Integer salaryMin;
-
-    @Column(name = "salary_max")
-    private Integer salaryMax;
-
-    @Column(name = "salary_currency")
-    private String salaryCurrency;
-
+    @Column(name = "location")
     private String location;
-    
+
+    @Column(name = "department")
     private String department;
+
+    @Column(name = "apply_url")
+    private String applyUrl;
 
     @Column(name = "description_text", columnDefinition = "TEXT")
     private String descriptionText;
 
-    @Column(name = "apply_url", nullable = false, columnDefinition = "TEXT")
-    private String applyUrl;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
-    @Column(name = "ats_job_id")
-    private String atsJobId;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-    @Column(name = "fingerprint_hash", nullable = false, unique = true)
-    private String fingerprintHash;
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
 
-    @Enumerated(EnumType.STRING)
-    @Column(insertable = false)
-    private JobStatus status;
-
-    @Column(name = "posted_at")
-    private OffsetDateTime postedAt;
-
-    @Column(name = "last_seen_at", insertable = false)
-    private OffsetDateTime lastSeenAt;
-
-    @Column(name = "closed_at")
-    private OffsetDateTime closedAt;
-
-    @Column(name = "created_at", insertable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    public enum JobStatus {
-        ACTIVE, STALE, EXPIRED, ARCHIVED
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }
